@@ -55,8 +55,6 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | '
   reversed: 'destructive',
 }
 
-// ── Skeleton ─────────────────────────────────────────────────
-
 function KPISkeleton() {
   return (
     <Card>
@@ -70,13 +68,11 @@ function KPISkeleton() {
   )
 }
 
-// ── Page ─────────────────────────────────────────────────────
-
 export default function Overview() {
   const { data, isLoading, isError } = useQuery<OverviewData>({
     queryKey: ['overview'],
     queryFn: async () => {
-      const res = await api.get('/dashboard/overview')
+      const res = await api.get('/v1/dashboard/overview')
       return res.data.data
     },
   })
@@ -93,7 +89,6 @@ export default function Overview() {
     <div className="p-8 space-y-8">
       <h1 className="text-2xl font-semibold">Overview</h1>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {isLoading ? (
           <>
@@ -155,7 +150,6 @@ export default function Overview() {
         )}
       </div>
 
-      {/* Recent Transactions */}
       <div>
         <h2 className="text-lg font-semibold mb-4">Recent Transactions</h2>
         {isLoading ? (

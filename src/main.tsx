@@ -10,6 +10,8 @@ import APIKeys from '@/pages/APIKeys'
 import Compliance from '@/pages/Compliance'
 import Webhooks from '@/pages/Webhooks'
 import Settlements from '@/pages/Settlements'
+import Register from '@/pages/Register'
+import VerifyOtp from '@/pages/VerifyOtp'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -68,6 +70,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           />
           <Route path="/webhooks" element={<ProtectedRoute><Webhooks /></ProtectedRoute>} />
           <Route path="/settlements" element={<ProtectedRoute><Settlements /></ProtectedRoute>} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/verify-otp" element={<VerifyOtp />} />
           {/* Catch-all: redirect unknown paths to overview */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

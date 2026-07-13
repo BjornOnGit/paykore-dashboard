@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -20,15 +20,20 @@ export default function Login() {
     setLoading(true)
 
     try {
-      const res = await api.post('/dashboard/auth/login', { email, password })
-      const { token, partner } = res.data.data
-      setAuth(token, partner)
+      const res = await api.post('/v1/auth/login', { email, password })
+      const data = res.data.data
+
+      if (data.requires_verification) {
+        navigate('/verify-otp', { state: { email: data.email, purpose: 'login' } })
+        return
+      }
+
+      const { token, partner_id, business_name, status, tier } = data
+      setAuth(token, { id: partner_id, business_name, email, status, tier })
       navigate('/')
     } catch (err: unknown) {
       const message =
-        err instanceof Error
-          ? err.message
-          : (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       setError(message ?? 'Invalid email or password')
     } finally {
       setLoading(false)
@@ -66,13 +71,17 @@ export default function Login() {
                 required
               />
             </div>
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Signing in…' : 'Sign in'}
             </Button>
           </form>
+          <p className="text-sm text-center text-muted-foreground mt-4">
+            Don't have an account?{' '}
+            <Link to="/register" className="text-primary font-medium hover:underline">
+              Register
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>
