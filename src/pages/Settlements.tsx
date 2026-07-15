@@ -6,6 +6,13 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Table,
   TableBody,
   TableCell,
@@ -18,31 +25,49 @@ import {
 
 interface SettlementRun {
   id: string
+  partner_id: string
+  status: string
   period_start: string
   period_end: string
   gross_amount: number
   fee_amount: number
   net_amount: number
   transaction_count: number
-  status: string
-  bank_account: BankAccount | null
+  dest_account_id: string
+  psp_reference: string
+  completed_at: string | null
   created_at: string
 }
 
 interface SettlementItem {
   id: string
+  run_id: string
   transaction_id: string
   amount: number
   fee: number
   created_at: string
 }
 
+interface Bank {
+  code: string
+  name: string
+}
+
 interface BankAccount {
   id: string
+  partner_id: string
   bank_code: string
   account_number: string
   account_name: string
   is_primary: boolean
+  verified_at: string | null
+  created_at: string
+}
+
+interface ResolvedAccount {
+  account_number: string
+  account_name: string
+  bank_code: string
 }
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -75,8 +100,8 @@ function SettlementItems({ runId }: { runId: string }) {
   const { data: items = [], isLoading } = useQuery<SettlementItem[]>({
     queryKey: ['settlement-items', runId],
     queryFn: async () => {
-      const res = await api.get(`/dashboard/settlements/${runId}/items`)
-      return res.data.data
+      const res = await api.get(`/v1/settlements/${runId}/items`)
+      return res.data.data ?? []
     },
   })
 
@@ -124,9 +149,26 @@ function SettlementItems({ runId }: { runId: string }) {
 
 function SettlementRow({ run }: { run: SettlementRun }) {
   const [expanded, setExpanded] = useState(false)
+  const [downloading, setDownloading] = useState(false)
 
-  function downloadCSV() {
-    window.open(`/api/dashboard/settlements/${run.id}/csv`, '_blank')
+  async function downloadCSV() {
+    setDownloading(true)
+    try {
+      const res = await api.get(`/v1/settlements/${run.id}/csv`, { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `settlement-${run.id}.csv`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch {
+      // Silently ignore — a toast/error surface can be wired in later if this
+      // turns out to fail often enough to warrant one.
+    } finally {
+      setDownloading(false)
+    }
   }
 
   return (
@@ -147,16 +189,10 @@ function SettlementRow({ run }: { run: SettlementRun }) {
             </span>
             <span>{run.transaction_count} txns</span>
           </div>
-          {run.bank_account && (
-            <p className="text-xs text-muted-foreground">
-              → {run.bank_account.account_name} ({run.bank_account.bank_code}{' '}
-              {run.bank_account.account_number})
-            </p>
-          )}
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-4">
-          <Button variant="outline" size="sm" onClick={downloadCSV}>
-            CSV
+          <Button variant="outline" size="sm" onClick={downloadCSV} disabled={downloading}>
+            {downloading ? 'Preparing…' : 'CSV'}
           </Button>
           <Button
             variant="ghost"
@@ -182,11 +218,19 @@ function SettlementRow({ run }: { run: SettlementRun }) {
 function BankAccountSection() {
   const queryClient = useQueryClient()
 
+  const { data: banks = [] } = useQuery<Bank[]>({
+    queryKey: ['banks'],
+    queryFn: async () => {
+      const res = await api.get('/v1/banks')
+      return res.data.data ?? []
+    },
+  })
+
   const { data: accounts = [], isLoading } = useQuery<BankAccount[]>({
     queryKey: ['bank-accounts'],
     queryFn: async () => {
-      const res = await api.get('/dashboard/bank-accounts')
-      return res.data.data
+      const res = await api.get('/v1/partner/bank-accounts')
+      return res.data.data ?? []
     },
   })
 
@@ -198,17 +242,17 @@ function BankAccountSection() {
   const [error, setError] = useState('')
 
   async function handleLookup() {
-    if (bankCode.length < 3 || accountNumber.length !== 10) {
-      setLookupError('Enter a valid bank code and 10-digit account number.')
+    if (!bankCode || accountNumber.length !== 10) {
+      setLookupError('Select a bank and enter a 10-digit account number.')
       return
     }
     setLookupError('')
     setResolvedName('')
     setLookupLoading(true)
     try {
-      const res = await api.get(
-        `/dashboard/bank-accounts/lookup?bank_code=${bankCode}&account_number=${accountNumber}`
-      )
+      const res = await api.get<{ data: ResolvedAccount }>('/v1/partner/bank-accounts/resolve', {
+        params: { bank_code: bankCode, account_number: accountNumber },
+      })
       setResolvedName(res.data.data.account_name)
     } catch {
       setLookupError('Could not resolve account. Check the details and try again.')
@@ -219,10 +263,9 @@ function BankAccountSection() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      await api.post('/dashboard/bank-accounts', {
+      await api.post('/v1/partner/bank-accounts', {
         bank_code: bankCode,
         account_number: accountNumber,
-        account_name: resolvedName,
       })
     },
     onSuccess: () => {
@@ -237,6 +280,10 @@ function BankAccountSection() {
       setError(msg ?? 'Failed to save bank account.')
     },
   })
+
+  function bankName(code: string): string {
+    return banks.find((b) => b.code === code)?.name ?? code
+  }
 
   return (
     <div className="space-y-4">
@@ -255,7 +302,7 @@ function BankAccountSection() {
                 <div>
                   <p className="text-sm font-medium">{a.account_name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {a.bank_code} · {a.account_number}
+                    {bankName(a.bank_code)} · {a.account_number}
                   </p>
                 </div>
                 {a.is_primary && (
@@ -274,16 +321,26 @@ function BankAccountSection() {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex gap-3">
-            <div className="space-y-1 w-32">
-              <label className="text-xs font-medium">Bank Code</label>
-              <Input
-                placeholder="044"
+            <div className="space-y-1 w-56">
+              <label className="text-xs font-medium">Bank</label>
+              <Select
                 value={bankCode}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  setBankCode(e.target.value)
+                onValueChange={(v) => {
+                  setBankCode(v)
                   setResolvedName('')
                 }}
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select your bank" />
+                </SelectTrigger>
+                <SelectContent>
+                  {banks.map((b) => (
+                    <SelectItem key={b.code} value={b.code}>
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1 flex-1">
               <label className="text-xs font-medium">Account Number</label>
@@ -292,7 +349,7 @@ function BankAccountSection() {
                 maxLength={10}
                 value={accountNumber}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  setAccountNumber(e.target.value)
+                  setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 10))
                   setResolvedName('')
                 }}
               />
@@ -337,8 +394,8 @@ export default function Settlements() {
   const { data: runs = [], isLoading, isError } = useQuery<SettlementRun[]>({
     queryKey: ['settlements'],
     queryFn: async () => {
-      const res = await api.get('/dashboard/settlements')
-      return res.data.data
+      const res = await api.get('/v1/settlements')
+      return res.data.data ?? []
     },
   })
 

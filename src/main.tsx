@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { isAuthenticated } from '@/lib/auth'
+import { AppLayout } from '@/components/layout/AppLayout'
 import Login from '@/pages/Login'
 import Overview from '@/pages/Overview'
 import Transactions from '@/pages/Transactions'
@@ -23,11 +24,11 @@ const queryClient = new QueryClient({
   },
 })
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedLayout({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated()) {
     return <Navigate to="/login" replace />
   }
-  return <>{children}</>
+  return <AppLayout>{children}</AppLayout>
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -39,37 +40,37 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route
             path="/"
             element={
-              <ProtectedRoute>
+              <ProtectedLayout>
                 <Overview />
-              </ProtectedRoute>
+              </ProtectedLayout>
             }
           />
           <Route
             path="/transactions"
             element={
-              <ProtectedRoute>
+              <ProtectedLayout>
                 <Transactions />
-              </ProtectedRoute>
+              </ProtectedLayout>
             }
           />
           <Route
             path="/api-keys"
             element={
-              <ProtectedRoute>
+              <ProtectedLayout>
                 <APIKeys />
-              </ProtectedRoute>
+              </ProtectedLayout>
             }
           />
           <Route
             path="/compliance"
             element={
-              <ProtectedRoute>
+              <ProtectedLayout>
                 <Compliance />
-              </ProtectedRoute>
+              </ProtectedLayout>
             }
           />
-          <Route path="/webhooks" element={<ProtectedRoute><Webhooks /></ProtectedRoute>} />
-          <Route path="/settlements" element={<ProtectedRoute><Settlements /></ProtectedRoute>} />
+          <Route path="/webhooks" element={<ProtectedLayout><Webhooks /></ProtectedLayout>} />
+          <Route path="/settlements" element={<ProtectedLayout><Settlements /></ProtectedLayout>} />
           <Route path="/register" element={<Register />} />
           <Route path="/verify-otp" element={<VerifyOtp />} />
           {/* Catch-all: redirect unknown paths to overview */}
