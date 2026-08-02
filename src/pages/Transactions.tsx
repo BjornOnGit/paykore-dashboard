@@ -147,7 +147,7 @@ export default function Transactions() {
       if (to) params.set('to', to)
       if (pageParam) params.set('cursor', pageParam as string)
       params.set('limit', '20')
-      const res = await api.get(`/dashboard/transactions?${params.toString()}`)
+      const res = await api.get(`/v1/transactions?${params.toString()}`)
       return res.data
     },
     initialPageParam: null,

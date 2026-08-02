@@ -75,8 +75,8 @@ export default function APIKeys() {
   const { data: keys = [], isLoading } = useQuery<APIKey[]>({
     queryKey: ['api-keys'],
     queryFn: async () => {
-      const res = await api.get('/dashboard/api-keys')
-      return res.data.data
+    const res = await api.get('/v1/api-keys')
+      return res.data.data ?? []
     },
   })
 
@@ -85,7 +85,7 @@ export default function APIKeys() {
     queryKey: ['compliance-status'],
     queryFn: async () => {
       const res = await api.get('/v1/partner/compliance/status')
-      return res.data.data
+      return res.data.data ?? []
     },
   })
 
@@ -94,11 +94,11 @@ export default function APIKeys() {
   // Create key mutation
   const createMutation = useMutation({
     mutationFn: async () => {
-      const res = await api.post('/dashboard/api-keys', {
-        label: newKeyLabel,
-        environment: newKeyEnv,
-      })
-      return res.data.data
+      const res = await api.post('/v1/api-keys', {
+      label: newKeyLabel,
+      environment: newKeyEnv,
+    })
+      return res.data.data ?? []
     },
     onSuccess: (data) => {
       setCreatedKey(data.full_key)
@@ -109,7 +109,7 @@ export default function APIKeys() {
   // Revoke key mutation
   const revokeMutation = useMutation({
     mutationFn: async (keyId: string) => {
-      await api.delete(`/dashboard/api-keys/${keyId}`)
+      await api.delete(`/v1/api-keys/${keyId}`)
     },
     onSuccess: () => {
       setRevokeTarget(null)

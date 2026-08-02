@@ -83,8 +83,8 @@ function DeliveryLog({ endpointId }: { endpointId: string }) {
   const { data: deliveries = [], isLoading } = useQuery<WebhookDelivery[]>({
     queryKey: ['webhook-deliveries', endpointId],
     queryFn: async () => {
-      const res = await api.get(`/dashboard/webhooks/${endpointId}/deliveries?limit=10`)
-      return res.data.data
+      const res = await api.get(`/v1/webhooks/${endpointId}/deliveries?limit=10`)
+      return res.data.data ?? []
     },
   })
 
@@ -135,6 +135,7 @@ function EndpointRow({
   onDelete: (id: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
+  const endpointEvents = Array.isArray(endpoint.events) ? endpoint.events : []
 
   return (
     <div className={`border rounded-lg overflow-hidden ${!endpoint.is_active ? 'opacity-50' : ''}`}>
@@ -148,14 +149,18 @@ function EndpointRow({
             )}
           </div>
           <div className="flex flex-wrap gap-1">
-            {endpoint.events.map((e) => (
-              <span
-                key={e}
-                className="text-xs bg-muted text-muted-foreground rounded px-1.5 py-0.5"
-              >
-                {e}
-              </span>
-            ))}
+            {endpointEvents.length === 0 ? (
+              <span className="text-xs text-muted-foreground">No events configured</span>
+            ) : (
+              endpointEvents.map((e, index) => (
+                <span
+                  key={`${e}-${index}`}
+                  className="text-xs bg-muted text-muted-foreground rounded px-1.5 py-0.5"
+                >
+                  {e}
+                </span>
+              ))
+            )}
           </div>
           <p className="text-xs text-muted-foreground">
             Last success: {formatDate(endpoint.last_success_at)}
@@ -327,7 +332,7 @@ export default function Webhooks() {
     queryKey: ['webhooks'],
     queryFn: async () => {
       const res = await api.get('/v1/webhooks')
-      return res.data.data
+      return res.data.data ?? []
     },
   })
 
